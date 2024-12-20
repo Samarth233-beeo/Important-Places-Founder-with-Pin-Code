@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popular Monuments Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            background: linear-gradient(to bottom, #87CEFA, #FFFFFF);
+        }
+        #search-section {
+            margin: 20px;
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #search-bar {
+            padding: 10px;
+            width: 300px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #search-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-left: 10px;
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        #search-button:hover {
+            background: linear-gradient(135deg, #45a049, #2E7D32);
+        }
+        #map-container {
+            margin: 20px auto;
+            width: 90%;
+            height: 500px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 2px solid #4CAF50;
+        }
+        h1 {
+            margin-top: 20px;
+            font-size: 2em;
+            color: #4CAF50;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <h1>Popular Monuments Viewer</h1>
+    <div id="search-section">
+        <input type="text" id="search-bar" placeholder="Enter Pincode...">
+        <button id="search-button">Search</button>
+    </div>
+    <div id="map-container"></div>
+
+    <script>
+        const map = L.map('map-container').setView([20.5937, 78.9629], 5); // Centered on India
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        function findMonuments(pincode) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${pincode}&countrycodes=in`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const location = data[0];
+                        const lat = location.lat;
+                        const lon = location.lon;
+
+                        map.setView([lat, lon], 15);
+                        L.marker([lat, lon]).addTo(map)
+                            .bindPopup(`<b>${location.display_name}</b>`)
+                            .openPopup();
+
+                        findNearbyMonuments(lat, lon);
+                    } else {
+                        alert('Pincode not found. Please enter a valid pincode.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function findNearbyMonuments(lat, lon) {
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:5000,${lat},${lon})[tourism=attraction];out;`;
+            fetch(overpassUrl)
+                .then(response => response.json())
+                .then(data => {
+                    data.elements.forEach(element => {
+                        if (element.lat && element.lon) {
+                            const name = element.tags.name || 'Unknown Attraction';
+                            const imgSrc = element.tags.image || 'https://via.placeholder.com/150';
+
+                            L.marker([element.lat, element.lon]).addTo(map)
+                                .bindPopup(`
+                                    <div style="text-align: center;">
+                                        <img src="${imgSrc}" alt="${name}" style="width: 100px; height: auto; margin-bottom: 5px; border-radius: 5px;" />
+                                        <b>${name}</b>
+                                    </div>
+                                `);
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching monuments:', error));
+        }
+
+        document.getElementById("search-button").addEventListener("click", () => {
+            const pincode = document.getElementById("search-bar").value;
+            if (pincode) {
+                findMonuments(pincode);
+            } else {
+                alert("Please enter a pincode.");
+            }
+        });
+    </script>
+</body>
+</html>
